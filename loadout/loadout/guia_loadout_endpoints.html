@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manual: Implementacion de Endpoints POST y PUT en Loadout</title>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9; color: #222; margin: 0; padding: 0; }
+    .container { max-width: 960px; margin: 40px auto; background: white; border-radius: 10px; box-shadow: 0 2px 16px rgba(0,0,0,0.10); padding: 48px 56px; }
+    h1 { color: #1a237e; font-size: 2em; margin-bottom: 0.2em; }
+    h2 { color: #283593; border-left: 5px solid #3f51b5; padding-left: 12px; margin-top: 2em; }
+    h3 { color: #1565c0; margin-top: 1.5em; }
+    p, li { line-height: 1.75; }
+    code { background: #e8eaf6; color: #1a237e; border-radius: 4px; padding: 2px 7px; font-size: 0.95em; }
+    pre { background: #1e1e2e; color: #cdd6f4; border-radius: 8px; padding: 20px 24px; overflow-x: auto; font-size: 0.92em; line-height: 1.6; white-space: pre; }
+    .kw { color: #cba6f7; }
+    .cl { color: #89dceb; }
+    .an { color: #a6e3a1; }
+    .st { color: #f9e2af; }
+    .cm { color: #6c7086; font-style: italic; }
+    .file-badge { display: inline-block; background: #3f51b5; color: white; border-radius: 5px; padding: 3px 12px; font-size: 0.85em; font-family: monospace; margin-bottom: 8px; margin-right: 4px; }
+    .new-badge { background: #2e7d32; }
+    .mod-badge { background: #e65100; }
+    .box { background: #e3f2fd; border-left: 5px solid #1565c0; padding: 12px 18px; border-radius: 5px; margin: 16px 0; }
+    .warn { background: #fff8e1; border-left: 5px solid #f9a825; padding: 12px 18px; border-radius: 5px; margin: 16px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
+    th { background: #3f51b5; color: white; padding: 10px 14px; text-align: left; }
+    td { padding: 9px 14px; border-bottom: 1px solid #e0e0e0; }
+    tr:nth-child(even) td { background: #f5f5f5; }
+    .toc { background: #f5f5f5; border-radius: 8px; padding: 18px 28px; margin-bottom: 32px; }
+    .toc a { color: #1a237e; text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    .flow { display: flex; align-items: center; flex-wrap: wrap; margin: 18px 0; gap: 0; }
+    .fbox { background: #3f51b5; color: white; border-radius: 6px; padding: 8px 14px; font-size: 0.88em; font-weight: bold; white-space: nowrap; }
+    .farrow { font-size: 1.3em; color: #757575; padding: 0 6px; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+<h1>Manual: Implementacion de Endpoints POST y PUT en Loadout</h1>
+<p>Este documento explica paso a paso como se implementaron los endpoints <code>POST /loadout</code> y <code>PUT /loadout</code> en una arquitectura hexagonal con Spring Boot. Escrito para que cualquier persona pueda entender que se hizo, por que y como repetirlo en el futuro.</p>
+
+<div class="toc">
+  <strong>Indice</strong>
+  <ol>
+    <li><a href="#arq">La arquitectura del proyecto</a></li>
+    <li><a href="#flujo">El flujo completo de una peticion</a></li>
+    <li><a href="#get">Paso 0 - El endpoint GET /loadout/{id} (base preexistente)</a></li>
+<li><a href="#p1">Paso 1 - Crear el modelo de entrada en el dominio (LoadoutInput)</a></li>
+    <li><a href="#p2">Paso 2 - Actualizar los puertos de entrada</a></li>
+    <li><a href="#p3">Paso 3 - Implementar la logica en LoadoutService</a></li>
+<li><a href="#p4">Paso 4 - Crear el DTO de respuesta (LoadoutResponseDto)</a></li>
+    <li><a href="#p5">Paso 5 - Crear el mapper de respuesta (LoadoutResponseMapper)</a></li>
+<li><a href="#p6">Paso 6 - Crear el DTO de entrada HTTP (LoadoutInputDto)</a></li>
+    <li><a href="#p7">Paso 7 - Crear el mapper de entrada (LoadoutInputMapper)</a></li>
+    <li><a href="#p8">Paso 8 - Completar el controlador REST</a></li>
+    <li><a href="#resumen">Resumen de todos los ficheros</a></li>
+    <li><a href="#convencion">Convencion de nomenclatura usada</a></li>
+    <li><a href="#repite">Como repetir esto para un nuevo endpoint</a></li>
+  </ol>
+</div>
+
+<!-- ===================== ARQUITECTURA ===================== -->
+<h2 id="arq">1. La arquitectura del proyecto</h2>
+<p>El proyecto usa <strong>arquitectura hexagonal</strong> (Ports & Adapters). La idea es separar el negocio (dominio) de los detalles tecnicos (HTTP, JSON, base de datos...).</p>
+<table>
+  <tr><th>Capa</th><th>Paquete</th><th>Que contiene</th></tr>
+  <tr><td><strong>Dominio</strong></td><td><code>domain/</code></td><td>Modelos de negocio y contratos (interfaces/puertos)</td></tr>
+  <tr><td><strong>Aplicacion</strong></td><td><code>application/</code></td><td>Logica de uso real: LoadoutService</td></tr>
+  <tr><td><strong>Infraestructura</strong></td><td><code>infrastructure/</code></td><td>Controllers REST, DTOs, mappers, clientes externos</td></tr>
+</table>
+<div class="box">
+  <strong>Regla de oro:</strong> el dominio NO conoce a la infraestructura. Nunca importes clases de <code>infrastructure</code> dentro de <code>domain</code>.
+</div>
+
+<!-- ===================== FLUJO ===================== -->
+<h2 id="flujo">2. El flujo completo de una peticion</h2>
+<p>Cuando el cliente envia <code>POST /loadout?idCharacter=1</code> con un body JSON:</p>
+<div class="flow">
+  <div class="fbox">Cliente HTTP</div><div class="farrow">-></div>
+  <div class="fbox">LoadoutController</div><div class="farrow">-></div>
+  <div class="fbox">LoadoutInputMapper</div><div class="farrow">-></div>
+  <div class="fbox">PostLoadoutUseCase</div><div class="farrow">-></div>
+  <div class="fbox">LoadoutService</div><div class="farrow">-></div>
+  <div class="fbox">CharacterClient / EquipmentClient</div>
+</div>
+<div class="flow">
+  <div class="fbox">LoadoutService</div><div class="farrow">-> Loadout -></div>
+  <div class="fbox">LoadoutResponseMapper</div><div class="farrow">-></div>
+  <div class="fbox">LoadoutResponseDto JSON</div><div class="farrow">-></div>
+  <div class="fbox">Cliente HTTP (201 Created)</div>
+</div>
+<p>Para <code>PUT /loadout</code> el flujo es identico pero pasa por <code>UpdateLoadoutUseCase</code> y devuelve <code>200 OK</code>.</p>
+
+<!-- ===================== PASO 0: GET ===================== -->
+<h2 id="get">Paso 0 - El endpoint GET /loadout/{id} (base preexistente)</h2>
+<span class="file-badge">domain/port/input/GetLoadoutUseCase.java</span>
+<span class="file-badge">application/service/LoadoutService.java</span>
+<span class="file-badge mod-badge">MODIFICADO</span>
+<span class="file-badge">infrastructure/input/rest/LoadoutController.java</span>
+
+<p>El GET fue el primer endpoint implementado y sirvio de base para entender el flujo completo.
+A diferencia del POST y PUT, <strong>no necesita un modelo de entrada en el dominio</strong>: solo recibe un ID por la URL y devuelve un <code>Loadout</code>.</p>
+
+<h3>Puerto de entrada</h3>
+<p>La interfaz <code>GetLoadoutUseCase</code> define el contrato que el controlador usa para pedir un loadout. Solo necesita el ID del personaje:</p>
+<pre>
+public interface GetLoadoutUseCase {
+    Loadout getLoadout(Long idCharacter);
+}
+</pre>
+
+<h3>Implementacion en LoadoutService</h3>
+<p>La logica es identica a la de POST/PUT pero sin recibir IDs de equipo: llama a los clientes externos, mapea los datos y construye el <code>Loadout</code> completo. En este proyecto, <code>getLoadout</code> reconstruye el loadout al vuelo (no hay base de datos); el ID del personaje se usa para buscar tanto al personaje como a su equipo en las APIs externas.</p>
+<pre>
+@Override
+public Loadout getLoadout(Long idCharacter) {
+    CharacterDTO characterDTO = characterClient.getCharacterById(idCharacter);
+    List<EquipmentPieceDTO> equipmentPieceDTOs =
+        equipmentClient.getEquipmentPiecesByCharacterId(idCharacter);
+
+    GameCharacter gameCharacter = characterMapper.fromDtoToDomain(characterDTO);
+    Equipment equipment = equipmentMapper.toEquipment(equipmentPieceDTOs);
+
+    BaseStats baseStats = new BaseStats(
+        gameCharacter.getHealth(),
+        gameCharacter.getAttack(),
+        gameCharacter.getDefense(),
+        gameCharacter.getSpeed()
+    );
+
+    FinalStats finalStats = getFinalStats(baseStats, equipment);
+
+    return new Loadout(
+        gameCharacter.getId(),
+        gameCharacter.getName(),
+        equipment,
+        baseStats,
+        finalStats
+    );
+}
+</pre>
+
+<h3>Metodo en el controlador</h3>
+<p>El controlador extrae el ID de la URL con <code>@PathVariable</code>, delega en el caso de uso y convierte el resultado a JSON con el mapper de respuesta:</p>
+<pre>
+@GetMapping("/{id}")
+public ResponseEntity<LoadoutResponseDto> getLoadout(@PathVariable Long id) {
+    Loadout loadout = getLoadoutUseCase.getLoadout(id);
+    return ResponseEntity.ok(loadoutResponseMapper.toResponse(loadout));
+}
+</pre>
+
+<h3>Flujo del GET</h3>
+<div class="flow">
+  <div class="fbox">GET /loadout/{id}</div><div class="farrow">-></div>
+  <div class="fbox">LoadoutController</div><div class="farrow">-></div>
+  <div class="fbox">GetLoadoutUseCase</div><div class="farrow">-></div>
+  <div class="fbox">LoadoutService</div><div class="farrow">-></div>
+  <div class="fbox">CharacterClient / EquipmentClient</div>
+</div>
+<div class="flow">
+  <div class="fbox">LoadoutService</div><div class="farrow">-> Loadout -></div>
+  <div class="fbox">LoadoutResponseMapper</div><div class="farrow">-></div>
+  <div class="fbox">LoadoutResponse JSON</div><div class="farrow">-></div>
+  <div class="fbox">200 OK</div>
+</div>
+
+<div class="box">
+  <strong>Por que GET no necesita LoadoutRequest ni LoadoutInput?</strong><br>
+  Porque no recibe datos de negocio del cliente: el unico parametro es el ID del personaje,
+  que llega como parte de la URL (<code>@PathVariable</code>), no como un body JSON.
+  Solo los endpoints que reciben datos complejos necesitan DTO de entrada y modelo de dominio de entrada.
+</div>
+
+<!-- ===================== PASO 1 ===================== -->
+<h2 id="p1">Paso 1 - Crear el modelo de entrada en el dominio</h2>
+<span class="file-badge new-badge">NUEVO</span>
+<span class="file-badge">domain/model/LoadoutRequest.java</span>
+
+<p>El dominio necesita su propio objeto para representar los datos que llegan en una peticion de creacion o actualizacion. <strong>No puede usar directamente el DTO del controlador</strong> porque eso crearia una dependencia del dominio hacia la infraestructura, rompiendo la arquitectura hexagonal.</p>
+
+<p>Por eso creamos <code>LoadoutRequest</code>: un POJO del dominio con los IDs de las piezas de equipo elegidas.</p>
+
+<pre>
+package com.gamedev.domain.model;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+<span class="an">@Data</span>
+<span class="an">@AllArgsConstructor</span>
+<span class="an">@NoArgsConstructor</span>
+public class LoadoutRequest {
+    Long idArmor;
+    Long idHelmet;
+    Long idWeapon;
+}
+</pre>
+
+<div class="warn">
+  <strong>Por que no usamos el DTO del controlador directamente en el servicio?</strong><br>
+  Porque el dominio debe ser independiente del canal de entrada. Hoy los datos llegan por HTTP/JSON,
+  pero manana podrian llegar por Kafka, gRPC o una CLI. El dominio no deberia cambiar por eso.
+  LoadoutRequest pertenece al dominio; LoadoutInput pertenece a la infraestructura HTTP.
+</div>
+
+<!-- ===================== PASO 2 ===================== -->
+<h2 id="p2">Paso 2 - Actualizar los puertos de entrada</h2>
+<span class="file-badge mod-badge">MODIFICADO</span>
+<span class="file-badge">domain/port/input/PostLoadoutUseCase.java</span>
+<span class="file-badge mod-badge">MODIFICADO</span>
+<span class="file-badge">domain/port/input/UpdateLoadoutUseCase.java</span>
+
+<p>Un <strong>puerto de entrada</strong> es una interfaz Java que declara que operaciones ofrece la aplicacion. Es el contrato: el controlador solo sabe que existe este metodo, no como esta implementado.</p>
+
+<p>Se actualizo la firma para recibir tambien el <code>LoadoutRequest</code> con los IDs del equipo:</p>
+
+<pre>
+<span class="cm">// PostLoadoutUseCase.java</span>
+public interface PostLoadoutUseCase {
+    Loadout postLoadout(Long idCharacter, LoadoutRequest request);
+}
+
+<span class="cm">// UpdateLoadoutUseCase.java</span>
+public interface UpdateLoadoutUseCase {
+    Loadout updateLoadout(Long idCharacter, LoadoutRequest request);
+}
+</pre>
+
+<div class="box">
+  Antes de este cambio, la firma solo tenia <code>Long idCharacter</code> y no habia forma de saber
+  que equipo queria equipar el personaje. Anadir <code>LoadoutRequest</code> completa la informacion necesaria.
+</div>
+
+<!-- ===================== PASO 3 ===================== -->
+<h2 id="p3">Paso 3 - Implementar la logica en LoadoutService</h2>
+<span class="file-badge mod-badge">MODIFICADO</span>
+<span class="file-badge">application/service/LoadoutService.java</span>
+
+<p><code>LoadoutService</code> implementa los tres puertos: <code>GetLoadoutUseCase</code>, <code>PostLoadoutUseCase</code> y <code>UpdateLoadoutUseCase</code>. Aqui vive la logica real.</p>
+
+<p>Para <code>postLoadout</code> y <code>updateLoadout</code> el flujo interno es el mismo:</p>
+<ol>
+  <li>Llamar a <code>CharacterClient</code> para obtener los datos del personaje por su ID.</li>
+  <li>Llamar a <code>EquipmentClient</code> para obtener las piezas de equipo por sus IDs (los del request).</li>
+  <li>Mapear los DTOs externos a modelos del dominio con <code>CharacterMapper</code> y <code>EquipmentMapper</code>.</li>
+  <li>Construir <code>BaseStats</code> con las stats del personaje.</li>
+  <li>Calcular <code>FinalStats</code> sumando los bonuses del equipo.</li>
+  <li>Devolver un <code>Loadout</code> completo.</li>
+</ol>
+
+<pre>
+public Loadout postLoadout(Long idCharacter, LoadoutRequest request) {
+
+    CharacterDTO characterDTO = characterClient.getCharacterById(idCharacter);
+    List<EquipmentPieceDTO> equipmentPieceDTO =
+        equipmentClient.getEquipmentPiecesByIds(
+            request.getIdArmor(),
+            request.getIdHelmet(),
+            request.getIdWeapon()
+        );
+
+    GameCharacter gameCharacter = characterMapper.fromDtoToDomain(characterDTO);
+    Equipment equipment = equipmentMapper.toEquipment(equipmentPieceDTO);
+
+    BaseStats baseStats = new BaseStats(
+        gameCharacter.getHealth(),
+        gameCharacter.getAttack(),
+        gameCharacter.getDefense(),
+        gameCharacter.getSpeed()
+    );
+
+    FinalStats finalStats = getFinalStats(baseStats, equipment);
+
+    return new Loadout(
+        gameCharacter.getId(),
+        gameCharacter.getName(),
+        equipment,
+        baseStats,
+        finalStats
+    );
+}
+</pre>
+
+<p><code>updateLoadout</code> tiene exactamente el mismo cuerpo. La diferencia entre POST y PUT esta solo en el controlador (codigo HTTP de respuesta), no en la logica de negocio.</p>
+
+<!-- ===================== PASO 4 ===================== -->
+<h2 id="p4">Paso 4 - Crear el DTO de respuesta (LoadoutResponse)</h2>
+<span class="file-badge new-badge">NUEVO</span>
+<span class="file-badge">infrastructure/input/rest/dto/LoadoutResponse.java</span>
+
+<p>Un <strong>DTO (Data Transfer Object)</strong> es un objeto cuya unica funcion es transportar datos. En este caso, <code>LoadoutResponse</code> representa el JSON que devolvera la API al cliente.</p>
+
+<p>Usa clases estaticas internas para anidar la estructura del JSON de forma limpia. Cada bloque del JSON (baseStats, equipment, finalStats) es una clase separada dentro de <code>LoadoutResponse</code>.</p>
+
+<pre>
+@Data
+public class LoadoutResponse {
+    Long characterId;
+    String name;
+    BaseStatsDTO baseStats;
+    EquipmentDTO equipment;
+    FinalStatsDTO finalStats;
+
+    @Data
+    public static class BaseStatsDTO {
+        Integer health;
+        Integer attack;
+        Integer defense;
+        Integer speed;
+    }
+
+    @Data
+    public static class EquipmentDTO {
+        WeaponDTO weapon;
+        ArmorDTO armor;
+        HelmetDTO helmet;
+
+        @Data
+        public static class WeaponDTO {
+            String name;
+            Integer weight;
+            Integer attackBonus;
+            Integer defenseBonus;
+            Boolean isMagical;
+        }
+        @Data
+        public static class ArmorDTO {
+            String name;
+            Integer weight;
+            Integer defenseBonus;
+        }
+        @Data
+        public static class HelmetDTO {
+            String name;
+            Integer weight;
+            Integer defenseBonus;
+            Integer focusBonus;
+        }
+    }
+
+    @Data
+    public static class FinalStatsDTO {
+        Integer health;
+        Integer attack;
+        Integer defense;
+        Integer speed;
+        Integer focusBonus;
+        Integer totalWeight;
+    }
+}
+</pre>
+
+<!-- ===================== PASO 5 ===================== -->
+<h2 id="p5">Paso 5 - Crear el mapper de respuesta (LoadoutResponseMapper)</h2>
+<span class="file-badge new-badge">NUEVO</span>
+<span class="file-badge">infrastructure/mapper/LoadoutResponseMapper.java</span>
+
+<p>El mapper convierte el objeto de dominio <code>Loadout</code> en el DTO <code>LoadoutResponse</code> listo para serializar a JSON. Se usa <strong>MapStruct</strong>, que genera el codigo de mapeo automaticamente en tiempo de compilacion a partir de la interfaz.</p>
+
+<p>El unico metodo que necesita implementacion manual es <code>fromEquipmentDomainToDTO</code>, porque MapStruct no puede deducir como transformar una <code>List<EquipmentPiece></code> en tres campos separados (weapon, armor, helmet). Se implementa como metodo <code>default</code>:</p>
+
+<pre>
+@Mapper(componentModel = "spring")
+public interface LoadoutResponseMapper {
+
+    @Mapping(source = "characterName", target = "name")
+    LoadoutResponse toResponse(Loadout loadout);
+
+    LoadoutResponse.BaseStatsDTO fromBaseStatsDomainToDTO(BaseStats baseStats);
+    LoadoutResponse.FinalStatsDTO fromFinalStatsDomainToDTO(FinalStats finalStats);
+    LoadoutResponse.EquipmentDTO.WeaponDTO fromWeaponDomainToDTO(Weapon weapon);
+    LoadoutResponse.EquipmentDTO.ArmorDTO fromArmorDomainToDTO(Armor armor);
+    LoadoutResponse.EquipmentDTO.HelmetDTO fromHelmetDomainToDTO(Helmet helmet);
+
+    default LoadoutResponse.EquipmentDTO fromEquipmentDomainToDTO(Equipment equipment) {
+        if (equipment == null || equipment.getPieces() == null) return null;
+
+        LoadoutResponse.EquipmentDTO dto = new LoadoutResponse.EquipmentDTO();
+        for (EquipmentPiece piece : equipment.getPieces()) {
+            if (piece instanceof Weapon w)       dto.setWeapon(fromWeaponDomainToDTO(w));
+            else if (piece instanceof Armor a)   dto.setArmor(fromArmorDomainToDTO(a));
+            else if (piece instanceof Helmet h)  dto.setHelmet(fromHelmetDomainToDTO(h));
+        }
+        return dto;
+    }
+}
+</pre>
+
+<div class="box">
+  <strong>Por que se usa @Mapping(source="characterName", target="name")?</strong><br>
+  El campo en el dominio se llama <code>characterName</code> pero en el DTO de respuesta se llama <code>name</code>.
+  Con esta anotacion le decimos a MapStruct como hacer esa correspondencia.
+</div>
+
+<!-- ===================== PASO 6 ===================== -->
+<h2 id="p6">Paso 6 - Crear el DTO de entrada HTTP (LoadoutInput)</h2>
+<span class="file-badge new-badge">NUEVO</span>
+<span class="file-badge">infrastructure/input/rest/dto/LoadoutInput.java</span>
+
+<p>Este DTO representa el cuerpo JSON que el cliente envia en <code>POST</code> o <code>PUT</code>. Contiene exactamente los mismos tres campos que <code>LoadoutRequest</code> pero pertenece a la capa de infraestructura.</p>
+
+<pre>
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class LoadoutInput {
+    Long idArmor;
+    Long idHelmet;
+    Long idWeapon;
+}
+</pre>
+
+<p>El JSON que envia el cliente tiene esta forma:</p>
+<pre>
+{
+  "idArmor": 2,
+  "idHelmet": 5,
+  "idWeapon": 3
+}
+</pre>
+
+<!-- ===================== PASO 7 ===================== -->
+<h2 id="p7">Paso 7 - Crear el mapper de entrada (LoadoutInputMapper)</h2>
+<span class="file-badge new-badge">NUEVO</span>
+<span class="file-badge">infrastructure/mapper/LoadoutInputMapper.java</span>
+
+<p>Convierte el <code>LoadoutInput</code> (infraestructura) en <code>LoadoutRequest</code> (dominio). Esto es lo que permite que el dominio nunca vea el DTO HTTP. MapStruct genera todo automaticamente porque los nombres de campos son identicos.</p>
+
+<pre>
+@Mapper(componentModel = "spring")
+public interface LoadoutInputMapper {
+    LoadoutRequest toDomain(LoadoutInput input);
+}
+</pre>
+
+<!-- ===================== PASO 8 ===================== -->
+<h2 id="p8">Paso 8 - Completar el controlador REST</h2>
+<span class="file-badge mod-badge">MODIFICADO</span>
+<span class="file-badge">infrastructure/input/rest/LoadoutController.java</span>
+
+<p>El controlador es el punto de entrada HTTP. Recibe peticiones, delega en los casos de uso y devuelve la respuesta. Usa <code>@RequiredArgsConstructor</code> de Lombok para inyectar las dependencias por constructor (buena practica frente a <code>@Autowired</code>).</p>
+
+<pre>
+@RestController
+@RequestMapping("/loadout")
+@RequiredArgsConstructor
+public class LoadoutController {
+
+    private final GetLoadoutUseCase getLoadoutUseCase;
+    private final PostLoadoutUseCase postLoadoutUseCase;
+    private final UpdateLoadoutUseCase updateLoadoutUseCase;
+    private final LoadoutResponseMapper loadoutResponseMapper;
+    private final LoadoutInputMapper loadoutInputMapper;
+
+    @GetMapping("/{id}")
+    public ResponseEntity<LoadoutResponse> getLoadout(@PathVariable Long id) {
+        Loadout loadout = getLoadoutUseCase.getLoadout(id);
+        return ResponseEntity.ok(loadoutResponseMapper.toResponse(loadout));
+    }
+
+    @PostMapping
+    public ResponseEntity<LoadoutResponse> postLoadout(
+            @RequestParam Long idCharacter,
+            @RequestBody LoadoutInput input) {
+        Loadout loadout = postLoadoutUseCase.postLoadout(
+            idCharacter, loadoutInputMapper.toDomain(input));
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(loadoutResponseMapper.toResponse(loadout));
+    }
+
+    @PutMapping
+    public ResponseEntity<LoadoutResponse> putLoadout(
+            @RequestParam Long idCharacter,
+            @RequestBody LoadoutInput input) {
+        Loadout loadout = updateLoadoutUseCase.updateLoadout(
+            idCharacter, loadoutInputMapper.toDomain(input));
+        return ResponseEntity.ok(loadoutResponseMapper.toResponse(loadout));
+    }
+}
+</pre>
+
+<table>
+  <tr><th>Anotacion</th><th>Que hace</th></tr>
+  <tr><td><code>@RestController</code></td><td>Marca la clase como controlador REST (respuestas son JSON por defecto)</td></tr>
+  <tr><td><code>@RequestMapping("/loadout")</code></td><td>Todos los endpoints de esta clase empiezan por /loadout</td></tr>
+  <tr><td><code>@GetMapping("/{id}")</code></td><td>Mapea GET /loadout/{id}</td></tr>
+  <tr><td><code>@PostMapping</code></td><td>Mapea POST /loadout</td></tr>
+  <tr><td><code>@PutMapping</code></td><td>Mapea PUT /loadout</td></tr>
+  <tr><td><code>@PathVariable</code></td><td>Extrae el {id} de la URL</td></tr>
+  <tr><td><code>@RequestParam</code></td><td>Extrae ?idCharacter=1 de la query string</td></tr>
+  <tr><td><code>@RequestBody</code></td><td>Deserializa el JSON del body en el DTO</td></tr>
+</table>
+
+<div class="warn">
+  <strong>Diferencia clave entre POST y PUT:</strong><br>
+  POST devuelve <code>201 Created</code> porque crea un nuevo recurso.<br>
+  PUT devuelve <code>200 OK</code> porque actualiza uno existente.<br>
+  En este proyecto la logica de negocio es identica en ambos, la diferencia es solo el codigo HTTP.
+</div>
+
+<!-- ===================== RESUMEN ===================== -->
+<h2 id="resumen">9. Resumen de todos los ficheros</h2>
+<table>
+  <tr><th>Fichero</th><th>Capa</th><th>Estado</th><th>Rol</th></tr>
+  <tr><td><code>domain/model/LoadoutRequest.java</code></td><td>Dominio</td><td>NUEVO</td><td>Modelo del dominio con los IDs de equipo para la peticion</td></tr>
+  <tr><td><code>domain/model/Loadout.java</code></td><td>Dominio</td><td>Existia</td><td>Modelo de dominio de la respuesta completa</td></tr>
+  <tr><td><code>domain/port/input/PostLoadoutUseCase.java</code></td><td>Dominio</td><td>MODIFICADO</td><td>Puerto (contrato) para crear un loadout</td></tr>
+  <tr><td><code>domain/port/input/UpdateLoadoutUseCase.java</code></td><td>Dominio</td><td>MODIFICADO</td><td>Puerto (contrato) para actualizar un loadout</td></tr>
+  <tr><td><code>domain/port/input/GetLoadoutUseCase.java</code></td><td>Dominio</td><td>Existia</td><td>Puerto (contrato) para obtener un loadout</td></tr>
+  <tr><td><code>application/service/LoadoutService.java</code></td><td>Aplicacion</td><td>MODIFICADO</td><td>Implementacion de los tres puertos. Logica de negocio real</td></tr>
+  <tr><td><code>infrastructure/input/rest/dto/LoadoutResponse.java</code></td><td>Infra</td><td>NUEVO</td><td>DTO con la estructura JSON de la respuesta HTTP</td></tr>
+  <tr><td><code>infrastructure/input/rest/dto/LoadoutInput.java</code></td><td>Infra</td><td>NUEVO</td><td>DTO con la estructura JSON del body de entrada HTTP</td></tr>
+  <tr><td><code>infrastructure/mapper/LoadoutResponseMapper.java</code></td><td>Infra</td><td>NUEVO</td><td>MapStruct: convierte Loadout (dominio) a LoadoutResponse (DTO)</td></tr>
+  <tr><td><code>infrastructure/mapper/LoadoutInputMapper.java</code></td><td>Infra</td><td>NUEVO</td><td>MapStruct: convierte LoadoutInput (DTO) a LoadoutRequest (dominio)</td></tr>
+  <tr><td><code>infrastructure/input/rest/LoadoutController.java</code></td><td>Infra</td><td>MODIFICADO</td><td>Controlador REST con GET, POST y PUT</td></tr>
+</table>
+
+<!-- ===================== CONVENCION ===================== -->
+<h2 id="convencion">10. Convencion de nomenclatura usada</h2>
+<table>
+  <tr><th>Sufijo</th><th>Ejemplo</th><th>Que es</th></tr>
+  <tr><td><code>UseCase</code></td><td>PostLoadoutUseCase</td><td>Puerto de entrada (interfaz del dominio)</td></tr>
+  <tr><td><code>Request</code></td><td>LoadoutRequest</td><td>Modelo del dominio para datos de entrada</td></tr>
+  <tr><td><code>Input</code></td><td>LoadoutInput</td><td>DTO HTTP de entrada (infraestructura)</td></tr>
+  <tr><td><code>Response</code></td><td>LoadoutResponse</td><td>DTO HTTP de salida (infraestructura)</td></tr>
+  <tr><td><code>Mapper</code></td><td>LoadoutInputMapper</td><td>Interfaz MapStruct de conversion</td></tr>
+  <tr><td><code>Service</code></td><td>LoadoutService</td><td>Implementacion de los casos de uso</td></tr>
+  <tr><td><code>Controller</code></td><td>LoadoutController</td><td>Adaptador de entrada HTTP</td></tr>
+  <tr><td><code>Client</code></td><td>CharacterClient</td><td>Adaptador de salida hacia API externa</td></tr>
+  <tr><td><code>DTO</code></td><td>CharacterDTO</td><td>Objeto de transferencia con APIs externas</td></tr>
+</table>
+
+<!-- ===================== COMO REPETIR ===================== -->
+<h2 id="repite">11. Como repetir esto para un nuevo endpoint</h2>
+<p>Imaginemos que necesitas anadir <code>DELETE /loadout</code>. Estos son los pasos exactos:</p>
+<ol>
+  <li>Si necesitas datos de entrada nuevos, crea un modelo en <code>domain/model/</code> (ej. <code>DeleteLoadoutRequest</code>).</li>
+  <li>Crea la interfaz del caso de uso en <code>domain/port/input/</code> (ej. <code>DeleteLoadoutUseCase</code>).</li>
+  <li>Implementa el metodo en <code>LoadoutService</code> e implementa la nueva interfaz.</li>
+  <li>Si la respuesta tiene una forma nueva, crea un nuevo DTO en <code>infrastructure/input/rest/dto/</code>.</li>
+  <li>Si hay mapeo nuevo, crea o actualiza un mapper en <code>infrastructure/mapper/</code>.</li>
+  <li>Crea un DTO de entrada si el endpoint recibe un body (en <code>infrastructure/input/rest/dto/</code>).</li>
+  <li>Crea un mapper de entrada si es necesario (en <code>infrastructure/mapper/</code>).</li>
+  <li>Anade el metodo <code>@DeleteMapping</code> en <code>LoadoutController</code>.</li>
+</ol>
+
+<div class="box">
+  <strong>Regla para recordar:</strong> cada vez que algo nuevo entra o sale por HTTP,
+  necesita su propio DTO en infraestructura y su propio modelo en el dominio (si porta datos de negocio).
+  Los mappers son el puente entre ambos mundos.
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,11 @@
+INSERT INTO game_character (name, health, attack, defense, speed) VALUES ('Radahn', 200, 100, 90, 30);
+INSERT INTO game_character (name, health, attack, defense, speed) VALUES ('Margit', 160, 88, 75, 55);
+INSERT INTO game_character (name, health, attack, defense, speed) VALUES ('Godfrey', 180, 92, 85, 40);
+INSERT INTO game_character (name, health, attack, defense, speed) VALUES ('Rykard', 140, 90, 60, 50);
+INSERT INTO game_character (name, health, attack, defense, speed) VALUES ('Maliketh', 130, 96, 65, 90);
+INSERT INTO game_character (name, health, attack, defense, speed) VALUES ('Artorias', 145, 90, 80, 75);
+INSERT INTO game_character (name, health, attack, defense, speed) VALUES ('Ornstein', 120, 88, 70, 85);
+INSERT INTO game_character (name, health, attack, defense, speed) VALUES ('Smough', 190, 85, 95, 20);
+INSERT INTO game_character (name, health, attack, defense, speed) VALUES ('Gwyn', 160, 92, 75, 60);
+INSERT INTO game_character (name, health, attack, defense, speed) VALUES ('Sif', 130, 85, 65, 80);
+INSERT INTO game_character (name, health, attack, defense, speed) VALUES ('Solaire', 140, 80, 70, 70);

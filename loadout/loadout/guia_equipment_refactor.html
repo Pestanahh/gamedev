@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Guía: Refactor de getFinalStats</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Fira+Code:wght@400;500&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #1e1e2e;
+      background: #ffffff;
+      padding: 48px;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1a1a2e;
+      border-bottom: 3px solid #5c7cfa;
+      padding-bottom: 10px;
+      margin-bottom: 28px;
+    }
+
+    h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #3b4cca;
+      margin-top: 36px;
+      margin-bottom: 10px;
+    }
+
+    h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #555;
+      margin-top: 20px;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    p { margin-bottom: 12px; }
+
+    blockquote {
+      border-left: 4px solid #5c7cfa;
+      background: #f0f4ff;
+      padding: 10px 16px;
+      margin: 14px 0;
+      border-radius: 0 6px 6px 0;
+      font-style: italic;
+      color: #333;
+    }
+
+    pre {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      padding: 16px 20px;
+      border-radius: 8px;
+      font-family: 'Fira Code', monospace;
+      font-size: 12.5px;
+      line-height: 1.6;
+      overflow-x: auto;
+      margin: 14px 0;
+    }
+
+    code {
+      font-family: 'Fira Code', monospace;
+      background: #eef0f8;
+      color: #3b4cca;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 12.5px;
+    }
+
+    pre code {
+      background: none;
+      color: inherit;
+      padding: 0;
+      border-radius: 0;
+      font-size: inherit;
+    }
+
+    .comment   { color: #6c7086; font-style: italic; }
+    .keyword   { color: #cba6f7; }
+    .type      { color: #89dceb; }
+    .string    { color: #a6e3a1; }
+    .number    { color: #fab387; }
+    .method    { color: #89b4fa; }
+    .annot     { color: #f38ba8; }
+
+    .badge-bad  { display: inline-block; background: #ff6b6b; color: #fff; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; margin-right: 6px; }
+    .badge-good { display: inline-block; background: #40c057; color: #fff; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; margin-right: 6px; }
+
+    .concept-box {
+      background: #f8f9ff;
+      border: 1px solid #d0d8ff;
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin: 14px 0;
+    }
+
+    .concept-box strong {
+      color: #3b4cca;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid #e0e4f0;
+      margin: 32px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 13px;
+    }
+
+    th {
+      background: #3b4cca;
+      color: #fff;
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+    }
+
+    td {
+      padding: 9px 14px;
+      border-bottom: 1px solid #e8eaf6;
+    }
+
+    tr:nth-child(even) td { background: #f5f6ff; }
+
+    .interview-box {
+      background: #fff8e1;
+      border-left: 4px solid #f59f00;
+      padding: 14px 18px;
+      border-radius: 0 8px 8px 0;
+      margin-top: 16px;
+    }
+
+    .interview-box p {
+      font-style: italic;
+      color: #555;
+      margin: 0;
+    }
+
+    @media print {
+      body { padding: 24px; font-size: 12px; }
+      h1   { font-size: 18px; }
+      h2   { font-size: 14px; }
+      pre  { font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Guía: Refactor de getFinalStats con interfaces y polimorfismo</h1>
+
+<!-- ────────────────────────────────── PROBLEMA ──────────────────────────────────── -->
+<h2>El problema de partida</h2>
+
+<p><code>getFinalStats</code> calculaba los stats finales accediendo a cada pieza de equipo <strong>por su nombre concreto</strong>:</p>
+
+<pre><code><span class="comment">// ❌ Versión original — acoplada a las clases concretas</span>
+<span class="keyword">private</span> <span class="type">FinalStats</span> <span class="method">getFinalStats</span>(<span class="type">BaseStats</span> stats, <span class="type">Equipment</span> equipment) {
+    <span class="type">Integer</span> finalDefense =
+            stats.<span class="method">getDefense</span>()
+                    + equipment.<span class="method">getHelmet</span>().<span class="method">getDefenseBonus</span>()
+                    + equipment.<span class="method">getArmor</span>().<span class="method">getDefenseBonus</span>()
+                    + equipment.<span class="method">getWeapon</span>().<span class="method">getDefenseBonus</span>();
+
+    <span class="type">Integer</span> finalAttack = stats.<span class="method">getAttack</span>() + equipment.<span class="method">getWeapon</span>().<span class="method">getAttackBonus</span>();
+    ...
+}</code></pre>
+
+<p>Y <code>Equipment</code> era un contenedor con campos fijos:</p>
+
+<pre><code><span class="comment">// ❌ Versión original — no extensible</span>
+<span class="keyword">public class</span> <span class="type">Equipment</span> {
+    <span class="type">Weapon</span> weapon;
+    <span class="type">Armor</span>  armor;
+    <span class="type">Helmet</span> helmet;
+}</code></pre>
+
+<div class="concept-box">
+  <strong>¿Cuál es el problema?</strong> Si se añade una nueva pieza (<code>Ring</code>, <code>Boots</code>…) hay que volver a <code>getFinalStats</code> y añadir líneas manualmente. Esto viola el principio <strong>Open/Closed (OCP)</strong> de SOLID: el código debería estar <em>abierto a extensión pero cerrado a modificación</em>.
+</div>
+
+<hr/>
+
+<!-- ────────────────────────────────── PASO 1 ──────────────────────────────────── -->
+<h2>Paso 1 — Crear una interfaz común: <code>EquipmentPiece</code></h2>
+
+<div class="concept-box">
+  <strong>Concepto: Interfaz</strong><br/>
+  Una <strong>interfaz</strong> es un contrato. Define qué métodos debe tener cualquier clase que la implemente, sin decir cómo los implementa. No tiene campos ni lógica propia.
+</div>
+
+<pre><code><span class="keyword">public interface</span> <span class="type">EquipmentPiece</span> {
+    <span class="type">Integer</span> <span class="method">getAttackBonus</span>();
+    <span class="type">Integer</span> <span class="method">getDefenseBonus</span>();
+}</code></pre>
+
+<blockquote>Toda pieza de equipo, sea la que sea, debe poder responder: "¿cuánto ataque das?" y "¿cuánta defensa das?".</blockquote>
+
+<hr/>
+
+<!-- ────────────────────────────────── PASO 2 ──────────────────────────────────── -->
+<h2>Paso 2 — Las clases concretas implementan la interfaz</h2>
+
+<div class="concept-box">
+  <strong>Concepto: <code>implements</code> vs <code>abstract</code></strong><br/>
+  <ul style="margin-top:6px; margin-left:18px;">
+    <li><code>implements</code> → La clase se compromete a tener los métodos de la interfaz. <strong>Sigue siendo concreta e instanciable</strong> con <code>new Armor(...)</code>.</li>
+    <li><code>abstract</code> → La clase <strong>NO</strong> se puede instanciar. Existe solo para ser extendida. No es lo que necesitamos aquí.</li>
+  </ul>
+</div>
+
+<h3>Weapon</h3>
+<p>Ya tenía <code>attackBonus</code> y <code>defenseBonus</code> como campos. Lombok genera los getters automáticamente, así que solo añadiendo <code>implements EquipmentPiece</code> cumple el contrato sin cambiar nada más.</p>
+
+<pre><code><span class="keyword">public class</span> <span class="type">Weapon</span> <span class="keyword">implements</span> <span class="type">EquipmentPiece</span> {
+    <span class="keyword">private</span> <span class="type">Integer</span> attackBonus;   <span class="comment">// → Lombok genera getAttackBonus()</span>
+    <span class="keyword">private</span> <span class="type">Integer</span> defenseBonus;  <span class="comment">// → Lombok genera getDefenseBonus()</span>
+    ...
+}</code></pre>
+
+<h3>Armor y Helmet</h3>
+<p>No tienen <code>attackBonus</code> (no atacan). Hay que implementar el método manualmente devolviendo <code>0</code>. El campo no hace falta, solo el método.</p>
+
+<pre><code><span class="keyword">public class</span> <span class="type">Armor</span> <span class="keyword">implements</span> <span class="type">EquipmentPiece</span> {
+    <span class="keyword">private</span> <span class="type">Integer</span> defenseBonus;  <span class="comment">// → Lombok genera getDefenseBonus()</span>
+
+    <span class="annot">@Override</span>
+    <span class="keyword">public</span> <span class="type">Integer</span> <span class="method">getAttackBonus</span>() {
+        <span class="keyword">return</span> <span class="number">0</span>;  <span class="comment">// La armadura no da bonus de ataque</span>
+    }
+}</code></pre>
+
+<div class="concept-box">
+  <strong>Concepto: Polimorfismo</strong><br/>
+  Las tres clases son distintas pero todas responden al mismo mensaje (<code>getAttackBonus()</code>, <code>getDefenseBonus()</code>). Cada una lo hace a su manera. Esto es <strong>polimorfismo</strong>: mismo método, comportamiento diferente según el tipo real del objeto.
+</div>
+
+<hr/>
+
+<!-- ────────────────────────────────── PASO 3 ──────────────────────────────────── -->
+<h2>Paso 3 — <code>Equipment</code> usa <code>List<EquipmentPiece></code></h2>
+
+<p>En lugar de campos fijos, <code>Equipment</code> contiene una lista de cualquier cosa que sea un <code>EquipmentPiece</code>.</p>
+
+<pre><code><span class="keyword">public class</span> <span class="type">Equipment</span> {
+    <span class="type">List</span><<span class="type">EquipmentPiece</span>> pieces;
+    <span class="comment">// Puede contener Weapon, Armor, Helmet, o cualquier pieza futura</span>
+}</code></pre>
+
+<blockquote>Para construirlo: <code>new Equipment(List.of(weapon, armor, helmet))</code></blockquote>
+
+<hr/>
+
+<!-- ────────────────────────────────── PASO 4 ──────────────────────────────────── -->
+<h2>Paso 4 — <code>getFinalStats</code> con streams</h2>
+
+<div class="concept-box">
+  <strong>Concepto: Programar contra la interfaz, no contra la implementación</strong><br/>
+  <code>getFinalStats</code> ya <strong>no sabe</strong> si está procesando un arma, una armadura o un anillo. Solo sabe que cada elemento es un <code>EquipmentPiece</code> y puede

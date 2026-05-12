@@ -1,0 +1,249 @@
+openapi: 3.0.0
+
+info:
+  title: Swagger loadout - OpenAPI 3.0
+  description: >
+    OpenApi 3.0 Loadout microservice specification.
+    This microservice is responsible for managing the equipment for a selected character.
+  version: 1.0.0
+
+servers:
+  - url: https://localhost:8082/loadout
+
+tags:
+  - name: loadout
+    description: loadout for selected characters
+
+paths:
+  /characters/{id}/equipment:
+    get:
+
+      tags:
+        - loadout
+      summary: Get a character with his entire equipment and stats
+      description: Get a character with his entire equipment and stats
+      operationId: getLoadout
+
+      parameters:
+        - name: id          # nombre del parámetro, coincide con {id} de la ruta
+          in: path          # indica que viene en la URL, no en query ni body
+          required: true    # los path params siempre son obligatorios
+          schema:
+            type: integer
+            format: int64
+
+      responses:
+        '200':                          # respuesta exitosa
+          description: Loadout found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoadoutResponse'   # referenciamos al modelo que definiremos después
+        '404':                          # personaje o equipo no encontrado
+          description: Character not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+
+      tags:
+        - loadout
+      summary: Loadout a character with the chosen equipment
+      description: Loadout a character with the chosen equipment
+      operationId: postLoadout
+
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+
+      requestBody:
+        description: add the chosen equipment to the selected Character
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoadoutInput'
+        required: true
+
+      responses:
+        '201':
+          description: Succesful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoadoutResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+
+      tags:
+        - loadout
+      summary: Edit a loadout
+      description: Edit a loadout
+      operationId: putLoadout
+
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+
+      requestBody:
+        description: change anything from a character loadout
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoadoutInput'
+        required: true
+
+      responses:
+        '200':
+          description: Loadout found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoadoutResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+
+    LoadoutInput:
+      required:
+        - idArmor
+        - idHelmet
+        - idWeapon
+      type: object
+      properties:
+        idArmor:
+          type: integer
+          format: int64
+          example: 1
+        idHelmet:
+          type: integer
+          format: int64
+          example: 2
+        idWeapon:
+          type: integer
+          format: int64
+          example: 3
+
+    LoadoutResponse:
+      type: object
+      properties:
+        characterId:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: Mendigo
+
+        baseStats:
+          type: object
+          properties:
+            health:
+              type: integer
+              example: 100
+            attack:
+              type: integer
+              example: 10
+            defense:
+              type: integer
+              example: 10
+            speed:
+              type: integer
+              example: 10
+
+        equipment:
+          type: object
+          properties:
+            weapon:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Claymore
+                attackBonus:
+                  type: integer
+                  example: 25
+                defenseBonus:
+                  type: integer
+                  example: 5
+                weight:
+                  type: integer
+                  example: 15
+                isMagical:
+                  type: boolean
+                  example: false
+            armor:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Superarmor
+                defenseBonus:
+                  type: integer
+                  example: 40
+                weight:
+                  type: integer
+                  example: 50
+            helmet:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Superhelmet
+                defenseBonus:
+                  type: integer
+                  example: 15
+                focusBonus:
+                  type: integer
+                  example: 5
+                weight:
+                  type: integer
+                  example: 10
+        finalStats:
+          type: object
+          properties:
+            attack:
+              type: integer
+              example: 35      # baseStats.attack + weapon.attackBonus
+            defense:
+              type: integer
+              example: 70      # baseStats.defense + weapon.defenseBonus + armor.defenseBonus + helmet.defenseBonus
+            speed:
+              type: integer
+              example: 10
+            health:
+              type: integer
+              example: 100
+            focusBonus:
+              type: integer    # helmet.focusBonu
+              example: 5
+            totalWeight:
+              type: integer
+              example: 75      # weapon.weight + armor.weight + helmet.weight
+
+    ErrorResponse:
+      properties:
+        Error:
+          type: string
+          example: Merchant data

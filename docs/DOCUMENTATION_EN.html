@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>GAMEDEV — Documentation (EN)</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --card:#111a33;
+      --text:#e8ecff;
+      --muted:#b7c0ff;
+      --accent:#7aa2ff;
+      --code:#0a0f1e;
+      --border:rgba(255,255,255,.12);
+    }
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;line-height:1.55}
+    a{color:var(--accent);text-decoration:none}
+    a:hover{text-decoration:underline}
+    .wrap{max-width:980px;margin:0 auto;padding:28px 18px 64px}
+    header{padding:18px 18px;background:linear-gradient(180deg,rgba(122,162,255,.20),transparent);border:1px solid var(--border);border-radius:14px}
+    h1{margin:0 0 6px;font-size:28px}
+    .subtitle{margin:0;color:var(--muted)}
+    .grid{display:grid;grid-template-columns:1fr;gap:14px;margin-top:14px}
+    @media (min-width:860px){.grid{grid-template-columns:1fr 1fr}}
+    section{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 16px}
+    h2{margin:0 0 10px;font-size:18px}
+    h3{margin:14px 0 8px;font-size:16px}
+    ul{margin:8px 0 0 18px}
+    code,pre{font-family:ui-monospace,SFMono-Regular,Consolas,Monaco,monospace}
+    pre{background:var(--code);padding:12px;border-radius:10px;border:1px solid var(--border);overflow:auto}
+    .pill{display:inline-block;padding:2px 10px;border-radius:999px;border:1px solid var(--border);color:var(--muted);font-size:12px;margin-right:6px}
+    .note{color:var(--muted);margin-top:10px}
+    .hr{height:1px;background:var(--border);margin:14px 0}
+    table{width:100%;border-collapse:collapse;margin-top:8px}
+    th,td{border:1px solid var(--border);padding:8px 10px;text-align:left;vertical-align:top}
+    th{color:var(--muted);font-weight:600}
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <div class="pill">JAVA 17</div>
+      <div class="pill">SPRING BOOT</div>
+      <div class="pill">MICROSERVICES</div>
+      <h1>GAMEDEV — Documentation (EN)</h1>
+      <p class="subtitle"><strong>Author:</strong> Andrés Pestana Hidalgo</p>
+      <p class="note">
+        This guide explains the project in a clear and direct way: first technologies and composition, then how each microservice works.
+      </p>
+    </header>
+
+    <div class="grid">
+      <section>
+        <h2>1) What is GAMEDEV</h2>
+        <p>
+          GAMEDEV is a project split into <strong>three microservices</strong>:
+        </p>
+        <ul>
+          <li><strong>characters</strong>: manages characters (name and base stats).</li>
+          <li><strong>equipment</strong>: manages equipment pieces (weapon, armor and helmet).</li>
+          <li><strong>loadout</strong>: the <strong>integrator</strong> that consumes characters + equipment to build a “loadout”
+              (character + full equipment + final stats).</li>
+        </ul>
+        <div class="hr"></div>
+        <h3>Main idea</h3>
+        <p>
+          <strong>loadout</strong> does not “invent” data: it fetches it via HTTP from the other microservices and then calculates the final result.
+        </p>
+      </section>
+
+      <section>
+        <h2>2) Technologies used</h2>
+        <ul>
+          <li><strong>Java 17</strong></li>
+          <li><strong>Spring Boot</strong> (web / MVC, dependency injection)</li>
+          <li><strong>Maven</strong> (build & run)</li>
+          <li><strong>MapStruct</strong> (DTO ↔ domain mapping)</li>
+          <li><strong>Lombok</strong> (reduces boilerplate)</li>
+          <li><strong>PostgreSQL</strong> (real persistence in <code>characters</code> and <code>equipment</code>)</li>
+          <li><strong>DBeaver</strong> (client to inspect/manage PostgreSQL)</li>
+          <li><strong>OpenAPI/Swagger</strong> (specification in <code>loadout</code>)</li>
+          <li><strong>Tests</strong> with Spring Boot Test</li>
+        </ul>
+        <p class="note">
+          What matters is that Spring Boot exposes HTTP endpoints, and loadout calls other endpoints.
+        </p>
+      </section>
+
+      <section>
+        <h2>3) Repository structure</h2>
+        <p>There are three main folders (one per microservice):</p>
+        <ul>
+          <li><code>characters/characters</code></li>
+          <li><code>equipment/equipment</code></li>
+          <li><code>loadout/loadout</code></li>
+        </ul>
+        <p class="note">
+          Each folder is an independent Maven project with its own <code>pom.xml</code>.
+        </p>
+      </section>
+
+      <section>
+        <h2>4) Ports and base URLs</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Microservice</th>
+              <th>Port</th>
+              <th>Base URL</th>
+              <th>Role</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>characters</td>
+              <td>8080</td>
+              <td><code>http://localhost:8080</code></td>
+              <td>Character data</td>
+            </tr>
+            <tr>
+              <td>equipment</td>
+              <td>8081</td>
+              <td><code>http://localhost:8081</code></td>
+              <td>Equipment data</td>
+            </tr>
+            <tr>
+              <td>loadout</td>
+              <td>8082</td>
+              <td><code>http://localhost:8082</code></td>
+              <td>Integrator / orchestration</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="note">
+          In <code>loadout</code>, the consumed services are configured as:
+          <code>http://localhost:8080</code> and <code>http://localhost:8081</code>.
+        </p>
+      </section>
+
+      <section>
+        <h2>5) How to run locally</h2>
+        <p>The simplest approach is to open <strong>3 terminals</strong> and run:</p>
+
+        <h3>Requirement: PostgreSQL + DBeaver</h3>
+        <ul>
+          <li>PostgreSQL must be running at <code>localhost:5432</code>.</li>
+          <li>Databases: <code>characters_db</code> and <code>equipment_db</code>.</li>
+          <li>Use DBeaver to connect to the server and press <em>Refresh</em> to see tables/data.</li>
+        </ul>
+        <p class="note">
+          If tables do not show up in DBeaver, ensure you do not have an active filter (it appears in the tree as “Filtered by search”)
+          and press <strong>F5</strong> to refresh.
+        </p>
+
+        <h3>characters</h3>
+        <p><strong>PowerShell</strong></p>
+        <pre><code>cd C:\dev\gamedev\characters\characters
+mvn spring-boot:run</code></pre>
+        <p><strong>CMD</strong></p>
+        <pre><code>cd /d C:\dev\gamedev\characters\characters && mvn spring-boot:run</code></pre>
+
+        <h3>equipment</h3>
+        <p><strong>PowerShell</strong></p>
+        <pre><code>cd C:\dev\gamedev\equipment\equipment
+mvn spring-boot:run</code></pre>
+        <p><strong>CMD</strong></p>
+        <pre><code>cd /d C:\dev\gamedev\equipment\equipment && mvn spring-boot:run</code></pre>
+
+        <h3>loadout</h3>
+        <p><strong>PowerShell</strong></p>
+        <pre><code>cd C:\dev\gamedev\loadout\loadout
+mvn spring-boot:run</code></pre>
+        <p><strong>CMD</strong></p>
+        <pre><code>cd /d C:\dev\gamedev\loadout\loadout && mvn spring-boot:run</code></pre>
+
+        <p class="note">
+          Important: do not use <code>&&</code> in PowerShell. It is allowed in CMD.
+        </p>
+
+        <p class="note">
+          If a microservice does not start, ensure the port is free and Java 17 is installed.
+        </p>
+      </section>
+
+      <section>
+        <h2>6) Internal architecture (Hexagonal) and SOLID principles</h2>
+        <p>
+          This project follows a <strong>hexagonal architecture (Ports & Adapters)</strong> approach. The main goal is to
+          <strong>decouple</strong> business logic from technical details (web framework, database, or HTTP calls).
+        </p>
+
+        <h3>Layers and responsibilities</h3>
+        <ul>
+          <li><strong>domain</strong>: business models and rules (plus domain exceptions). It should not depend on frameworks.</li>
+          <li><strong>domain/port</strong>: <strong>ports</strong> (interfaces) that define what the domain needs and provides.</li>
+          <li><strong>application</strong>: use cases/services that orchestrate domain logic.</li>
+          <li><strong>infrastructure</strong>: input/output <strong>adapters</strong> (REST controllers, persistence, HTTP clients).</li>
+        </ul>
+
+        <h3>SOLID (in practice)</h3>
+        <ul>
+          <li><strong>S</strong> (Single Responsibility): each class focuses on one job (controller, service, mapper, client...).</li>
+          <li><strong>O</strong> (Open/Closed): behavior is extended via new adapters/implementations without breaking the core.</li>
+          <li><strong>L</strong> (Liskov Substitution): implementations respect the contracts defined by ports (interfaces).</li>
+          <li><strong>I</strong> (Interface Segregation): small, focused ports instead of “god” interfaces.</li>
+          <li><strong>D</strong> (Dependency Inversion): the domain depends on abstractions (ports), not on details.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>7) Loadout: the integrator</h2>
+        <p>
+          <strong>loadout</strong> is the most important microservice in terms of “flow”, because it:
+        </p>
+        <ul>
+          <li>receives the client request (for example: “get character 1 loadout”)</li>
+          <li>calls <strong>characters</strong> to fetch the character</li>
+          <li>calls <strong>equipment</strong> to fetch equipment details</li>
+          <li>computes final stats (e.g., attack/defense/total weight)</li>
+          <li>returns a unified response</li>
+        </ul>
+
+        <div class="hr"></div>
+        <h3>Consumed services configuration</h3>
+        <p>
+          File: <code>loadout/loadout/src/main/resources/application.yaml</code>
+        </p>
+      </section>
+
+      <section>
+        <h2>8) Loadout API (quick summary)</h2>
+        <p>
+          The specification is located at: <code>loadout/loadout/src/main/resources/openapi.yaml</code>.
+        </p>
+        <ul>
+          <li><code>GET /characters/{id}/equipment</code> → returns character + equipment + final stats</li>
+          <li><code>POST /characters/{id}/equipment</code> → assigns chosen equipment to a character</li>
+          <li><code>PUT /characters/{id}/equipment</code> → edits an existing loadout</li>
+        </ul>
+
+        <h3>Example (conceptual)</h3>
+        <pre><code>GET http://localhost:8082/characters/1/equipment</code></pre>
+
+        <p class="note">
+          The exact JSON is defined in OpenAPI. It includes: <em>baseStats</em>, <em>equipment</em> and <em>finalStats</em>.
+        </p>
+      </section>
+    </div>
+
+    <section style="margin-top:14px">
+      <h2>9) Common errors & tips</h2>
+      <ul>
+        <li><strong>404 Character not found</strong>: the character does not exist in characters.</li>
+        <li><strong>400 Invalid input</strong>: the request body does not match the expected model.</li>
+        <li>Always start in this order: <strong>characters</strong> → <strong>equipment</strong> → <strong>loadout</strong>.</li>
+        <li>If you change ports, update loadout's <code>application.yaml</code>.</li>
+      </ul>
+    </section>
+
+    <p class="note" style="margin-top:14px">
+      © GAMEDEV · Author: Andrés Pestana Hidalgo
+    </p>
+  </div>
+</body>
+</html>
